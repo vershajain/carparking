@@ -18,6 +18,7 @@ import { ParkingGrid } from './components/ParkingGrid';
 import { ReadyQueue } from './components/ReadyQueue';
 import { DecisionExplainer } from './components/DecisionExplainer';
 import { AuditLogTable } from './components/AuditLogTable';
+import { PerformanceBenchmark } from './components/PerformanceBenchmark';
 import { SlotDetailsModal } from './components/SlotDetailsModal';
 import { VehiclePcbModal } from './components/VehiclePcbModal';
 import { AdminConfigModal } from './components/AdminConfigModal';
@@ -25,11 +26,48 @@ import { SpawnVehicleModal } from './components/SpawnVehicleModal';
 import { AddSlotModal } from './components/AddSlotModal';
 
 export const App: React.FC = () => {
-  // Theme State: 'mocha' (Warm Coffee / Dark Amber / Mocha) vs 'cyber' (Neon OS)
+  // Theme State: 'mocha' (Warm Coffee / Dark Amber) vs 'cyber' (Neon OS)
   const [theme, setTheme] = useState<'mocha' | 'cyber'>(() => {
     const saved = localStorage.getItem('parkos_theme');
     return (saved as 'mocha' | 'cyber') || 'mocha';
   });
+
+  // Routing / View Tab: 'dashboard' (Live OS Console) vs 'benchmark' (Performance Benchmark)
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'benchmark'>(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.toLowerCase();
+      const path = window.location.pathname.toLowerCase();
+      if (hash === '#benchmark' || path.startsWith('/benchmark')) {
+        return 'benchmark';
+      }
+    }
+    return 'dashboard';
+  });
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const hash = window.location.hash.toLowerCase();
+      const path = window.location.pathname.toLowerCase();
+      if (hash === '#benchmark' || path.startsWith('/benchmark')) {
+        setActiveTab('benchmark');
+      } else {
+        setActiveTab('dashboard');
+      }
+    };
+    window.addEventListener('hashchange', handleLocationChange);
+    window.addEventListener('popstate', handleLocationChange);
+    return () => {
+      window.removeEventListener('hashchange', handleLocationChange);
+      window.removeEventListener('popstate', handleLocationChange);
+    };
+  }, []);
+
+  const handleTabChange = (tab: 'dashboard' | 'benchmark') => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      window.location.hash = tab === 'benchmark' ? '#benchmark' : '#dashboard';
+    }
+  };
 
   useEffect(() => {
     document.body.className = theme === 'mocha' ? 'theme-mocha' : 'theme-cyber';
@@ -84,54 +122,24 @@ export const App: React.FC = () => {
     if (data.logs) setLogs(data.logs);
   }, []);
 
-  const refreshState = useCallback(async () => {
-    const data = await api.getState();
-    applyState(data);
+  // Fetch initial state
+  useEffect(() => {
+    api.getState().then(applyState);
   }, [applyState]);
 
+  // Master Clock Polling when running in dashboard view
   useEffect(() => {
-    refreshState();
-  }, [refreshState]);
-
-  // Simulation loop when running
-  useEffect(() => {
-    if (!isRunning) return;
-
+    if (!isRunning || activeTab !== 'dashboard') return;
     const intervalMs = Math.max(100, Math.floor(1000 / speedMultiplier));
-    const timer = setInterval(async () => {
-      const data = await api.step(1);
-      applyState(data);
+    const timer = setInterval(() => {
+      api.step(1).then(applyState);
     }, intervalMs);
-
     return () => clearInterval(timer);
-  }, [isRunning, speedMultiplier, applyState]);
+  }, [isRunning, speedMultiplier, activeTab, applyState]);
 
-  // Keyboard shortcut listener
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-      if (e.code === 'Space') {
-        e.preventDefault();
-        handleTogglePlay();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isRunning, speedMultiplier]);
-
-  // Handlers
+  // Clock Control Handlers
   const handleTogglePlay = async () => {
-    const nextRunning = !isRunning;
-    setIsRunning(nextRunning);
-    const data = await api.setControl(nextRunning, speedMultiplier);
-    applyState(data);
-  };
-
-  const handleSpeedChange = async (speed: number) => {
-    setSpeedMultiplier(speed);
-    const data = await api.setControl(isRunning, speed);
+    const data = await api.setControl(!isRunning);
     applyState(data);
   };
 
@@ -150,6 +158,12 @@ export const App: React.FC = () => {
     applyState(data);
   };
 
+  const handleSpeedChange = async (speed: number) => {
+    const data = await api.setControl(isRunning, speed);
+    applyState(data);
+  };
+
+  // Vehicle Entity Operations
   const handleSpawnVehicle = async (params: {
     category: VehicleCategory;
     isEV: boolean;
@@ -229,7 +243,6 @@ export const App: React.FC = () => {
         licensePlate: `DIS-${Math.floor(1000 + Math.random() * 9000)}`,
       });
     } else if (preset === 'RUSH_HOUR') {
-      // Spawn a burst of 5 diverse vehicles to immediately trigger high demand!
       for (let i = 0; i < 4; i++) {
         await api.spawnVehicle({
           category: 'NORMAL',
@@ -273,19 +286,20 @@ export const App: React.FC = () => {
     applyState(data);
   };
 
-  // Find occupant vehicle for selected slot
   const selectedSlotOccupant = selectedSlot?.currentVehicleId
     ? vehicles.find((v) => v.id === selectedSlot.currentVehicleId) || null
     : null;
 
   return (
     <div className="min-h-screen flex flex-col font-sans transition-colors duration-300">
-      {/* Simulation Master Header */}
+      {/* Simulation Master Header with Routing Tabs */}
       <Header
         clock={clock}
         isRunning={isRunning}
         speedMultiplier={speedMultiplier}
         theme={theme}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
         onToggleTheme={handleToggleTheme}
         onTogglePlay={handleTogglePlay}
         onStep={handleStep}
@@ -298,48 +312,54 @@ export const App: React.FC = () => {
         onQuickSpawn={handleQuickSpawn}
       />
 
-      {/* Main OS Command Center Dashboard */}
+      {/* Main View Router */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 space-y-6">
-        {/* Top Metric Cards & Full Capacity Alert */}
-        <section aria-label="System Metrics">
-          <MetricCards metrics={metrics} demandThreshold={config.demandThreshold} />
-        </section>
+        {activeTab === 'benchmark' ? (
+          /* Dedicated Performance Comparison & Benchmark Simulation View */
+          <PerformanceBenchmark onBackToDashboard={() => handleTabChange('dashboard')} />
+        ) : (
+          /* Live OS Command Center Dashboard */
+          <>
+            {/* Top Metric Cards & Full Capacity Alert */}
+            <section aria-label="System Metrics">
+              <MetricCards metrics={metrics} demandThreshold={config.demandThreshold} />
+            </section>
 
-        {/* Visual Parking Grid (The Physical Resource Block Map) */}
-        <section aria-label="Resource Map">
-          <ParkingGrid
-            slots={slots}
-            vehicles={vehicles}
-            currentClock={clock}
-            onSlotClick={(slot) => setSelectedSlot(slot)}
-            onOpenAddSlotModal={() => setIsAddSlotModalOpen(true)}
-          />
-        </section>
+            {/* Visual Parking Grid (The Physical Resource Block Map) */}
+            <section aria-label="Resource Map">
+              <ParkingGrid
+                slots={slots}
+                vehicles={vehicles}
+                currentClock={clock}
+                onSlotClick={(slot) => setSelectedSlot(slot)}
+                onOpenAddSlotModal={() => setIsAddSlotModalOpen(true)}
+              />
+            </section>
 
-        {/* Two-Column Core Layout: Ready Queue & Decision Explainer */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start" aria-label="Scheduler Core">
-          {/* Dynamic Ready Queue (The Process Priority Heap) */}
-          <ReadyQueue
-            vehicles={vehicles}
-            currentClock={clock}
-            isHighDemand={metrics.isHighDemand}
-            onVehicleClick={(vehicle) => setSelectedVehicle(vehicle)}
-          />
+            {/* Two-Column Core Layout: Ready Queue & Decision Explainer */}
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start" aria-label="Scheduler Core">
+              <ReadyQueue
+                vehicles={vehicles}
+                currentClock={clock}
+                isHighDemand={metrics.isHighDemand}
+                onVehicleClick={(vehicle) => setSelectedVehicle(vehicle)}
+              />
 
-          {/* Critical Viva Feature: Allocation Decision Explainer */}
-          <DecisionExplainer
-            decision={latestDecision}
-            onSelectSlot={(slotId) => {
-              const s = slots.find((sl) => sl.id === slotId);
-              if (s) setSelectedSlot(s);
-            }}
-          />
-        </section>
+              <DecisionExplainer
+                decision={latestDecision}
+                onSelectSlot={(slotId) => {
+                  const s = slots.find((sl) => sl.id === slotId);
+                  if (s) setSelectedSlot(s);
+                }}
+              />
+            </section>
 
-        {/* Live OS Event Audit Logs */}
-        <section aria-label="Audit Logs">
-          <AuditLogTable logs={logs} />
-        </section>
+            {/* Live OS Event Audit Logs */}
+            <section aria-label="Audit Logs">
+              <AuditLogTable logs={logs} />
+            </section>
+          </>
+        )}
       </main>
 
       {/* Modals & Drawers */}
@@ -394,7 +414,7 @@ export const App: React.FC = () => {
             Operating Systems Academic Project &bull; <strong className="text-[#d1c7bd]">ParkOS Resource Scheduler</strong>
           </span>
           <span className="text-[#9c8e82]">
-            Rule-Based Deterministic Model &bull; Hot-Plug Dynamic Capacity &bull; Zero Blackbox AI
+            Deterministic Operating System Benchmark &bull; FCFS Baseline vs Proposed Adaptive Engine &bull; Zero Blackbox AI
           </span>
         </div>
       </footer>
