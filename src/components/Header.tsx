@@ -17,6 +17,8 @@ import {
   Moon,
   Sun,
   Layers,
+  BarChart3,
+  Terminal,
 } from 'lucide-react';
 import { VehicleCategory } from '../core/types';
 
@@ -25,6 +27,8 @@ interface HeaderProps {
   isRunning: boolean;
   speedMultiplier: number;
   theme: 'mocha' | 'cyber';
+  activeTab: 'dashboard' | 'benchmark';
+  onTabChange: (tab: 'dashboard' | 'benchmark') => void;
   onToggleTheme: () => void;
   onTogglePlay: () => void;
   onStep: (mins: number) => void;
@@ -42,6 +46,8 @@ export const Header: React.FC<HeaderProps> = ({
   isRunning,
   speedMultiplier,
   theme,
+  activeTab,
+  onTabChange,
   onToggleTheme,
   onTogglePlay,
   onStep,
@@ -62,10 +68,10 @@ export const Header: React.FC<HeaderProps> = ({
     .padStart(2, '0')} ${hours >= 12 ? 'PM' : 'AM'}`;
 
   return (
-    <header className="border-b border-[#3a2e26] bg-[#1a1412]/95 backdrop-blur-md sticky top-0 z-40 px-4 py-3 shadow-xl text-[#f7f2ee]">
-      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-4">
-        {/* Brand & Theme Switcher */}
-        <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
+    <header className="border-b border-[#3a2e26] bg-[#1a1412]/95 backdrop-blur-md sticky top-0 z-40 px-4 py-2.5 shadow-xl text-[#f7f2ee]">
+      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-3">
+        {/* Brand, Tab Navigation & Theme Switcher */}
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-[#d97736] via-[#c88a4b] to-[#e0a96d] flex items-center justify-center shadow-lg shadow-[#d97736]/25 border border-[#e0a96d]/40">
               <Cpu className="w-5 h-5 text-black font-bold animate-pulse" />
@@ -80,10 +86,37 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </div>
               <p className="text-xs text-[#d1c7bd] hidden sm:block">
-                Deterministic OS Process & Resource Allocation Simulation
+                Deterministic OS Process &amp; Resource Allocation Engine
               </p>
             </div>
           </div>
+
+          {/* Primary View Routing Tabs */}
+          <nav className="flex items-center bg-[#16100d] p-1 rounded-xl border border-[#3a2e26] text-xs font-mono">
+            <button
+              onClick={() => onTabChange('dashboard')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all font-semibold ${
+                activeTab === 'dashboard'
+                  ? 'bg-[#d97736] text-black shadow-md shadow-[#d97736]/20 font-bold'
+                  : 'text-[#9c8e82] hover:text-[#f7f2ee] hover:bg-[#231b17]'
+              }`}
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>Live OS Console</span>
+            </button>
+            <button
+              onClick={() => onTabChange('benchmark')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all font-semibold ${
+                activeTab === 'benchmark'
+                  ? 'bg-[#d97736] text-black shadow-md shadow-[#d97736]/20 font-bold'
+                  : 'text-[#9c8e82] hover:text-[#f7f2ee] hover:bg-[#231b17]'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Performance Benchmark</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            </button>
+          </nav>
 
           {/* Theme Switcher Toggle */}
           <div className="flex items-center gap-2">
@@ -99,36 +132,11 @@ export const Header: React.FC<HeaderProps> = ({
                 </>
               ) : (
                 <>
-                  <Zap className="w-3.5 h-3.5 text-cyan-400" />
+                  <Moon className="w-3.5 h-3.5 text-cyan-400" />
                   <span className="hidden sm:inline font-semibold text-cyan-300">Cyber</span>
                 </>
               )}
             </button>
-
-            {/* Mobile quick actions */}
-            <div className="flex lg:hidden items-center gap-1">
-              <button
-                onClick={() => onQuickSpawn('AMBULANCE')}
-                className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs"
-                title="Spawn Ambulance"
-              >
-                <Ambulance className="w-4 h-4" />
-              </button>
-              <button
-                onClick={onOpenAddSlotModal}
-                className="p-1.5 rounded-lg bg-[#d97736]/20 border border-[#d97736]/40 text-[#e0a96d] text-xs"
-                title="Add Slot"
-              >
-                <Layers className="w-4 h-4" />
-              </button>
-              <button
-                onClick={onOpenConfig}
-                className="p-1.5 rounded-lg bg-[#2b211b] text-[#d1c7bd] border border-[#4a3b32]"
-                title="Configuration"
-              >
-                <Sliders className="w-4 h-4" />
-              </button>
-            </div>
           </div>
         </div>
 
@@ -281,7 +289,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onOpenConfig}
             className="p-2 rounded-xl bg-[#2b211b] hover:bg-[#362a23] text-[#d1c7bd] border border-[#4a3b32] transition-colors"
-            title="Scheduler Formula & Weight Configurations"
+            title="Scheduler Formula &amp; Weight Configurations"
           >
             <Sliders className="w-4 h-4" />
           </button>

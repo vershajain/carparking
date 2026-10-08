@@ -112,3 +112,33 @@ Click the **☕ Mocha / ⚡ Cyber** button in the top navigation bar to toggle b
    - Demand ratio is re-evaluated.
    - Scheduler immediately pops compatible waiting vehicles and assigns the new slot!
 5. Click any slot card to toggle between **Online** and **Offline (Maintenance)** or **Delete** the slot.
+
+
+---
+
+## ⚡ Performance Comparison & Benchmark Simulation (FCFS vs Adaptive)
+
+Navigate to the **⚡ Performance Benchmark** tab in the navigation bar to evaluate the proposed Adaptive Scheduler against traditional First-Come-First-Served (FCFS) on identical input traces.
+
+### Evaluation Methodology
+> *"The proposed Adaptive Scheduler is validated purely against deterministic, measurable operating system performance metrics across identical scenario traces, rather than static assumptions."*
+
+### 5 Preset Workload Scenarios (Identical Input Traces):
+1. **Low Demand Workload**: Sparse arrivals, low resource contention (<50% capacity, P_L locked).
+2. **High Demand Workload**: Rapid incoming burst, high contention (>100% capacity, P_L ➔ P_H switching, aging starvation prevention).
+3. **Emergency-Heavy Workload**: Ambulances ($U=100$), Fire Trucks ($U=95$), and Police cruisers ($U=90$) interspersed among normal cars.
+4. **Reservation-Heavy Workload**: Advance pre-bookings testing 10-minute hold-and-wait grace timer and no-show auto-release.
+5. **Mixed Duration Workload**: Short burst turnover (5–15 min) vs long resident stays (60–180 min) testing Shortest-Job-First turnover heuristic ($V$).
+
+### Evaluated Operating System Metrics:
+- **Average Waiting Time ($W_{avg}$)**: Lower is better.
+- **Maximum Waiting Time ($W_{max}$)**: Lower is better.
+- **Slot Utilization Rate ($U\%$)**: Higher is better.
+- **Emergency Response Time ($T_{emerg}$)**: Lower is better.
+- **Starvation Count ($N_{starve}$)**: Processes waiting > 20 minutes (eliminated under Adaptive via Aging $F$).
+- **Reservation Success Rate ($R_{succ}\%$)**: Higher is better.
+- **Expired Reservations / No-Shows**: Strict 10-minute grace auto-release count.
+- **Total / Avg Overstay & Fines (₹)**: Overtime penalties incurred.
+
+### Dynamic Delta Percentage Calculation:
+$$\Delta\% = \left(\frac{|\text{Metric}_{FCFS} - \text{Metric}_{Adaptive}|}{\text{Metric}_{FCFS}}\right) \times 100$$
